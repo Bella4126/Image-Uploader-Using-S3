@@ -24,11 +24,9 @@ public class SimpleS3Config {
     public S3Client s3Client() {
         return S3Client.builder()
                 .region(Region.of(awsRegion))
-                .credentialsProvider(
-                        StaticCredentialsProvider.create(
-                                AwsBasicCredentials.create(awsAccessKey, awsSecretKey)
-                        )
-                )
+                .credentialsProvider(StaticCredentialsProvider.create(
+                    AwsBasicCredentials.create(awsAccessKey, awsSecretKey)))
                 .build();
     }
 }
+

@@ -1,3 +1,6 @@
+
+
+
 package com.Singh.SpringOauth2Demo.service;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -14,27 +17,35 @@ import java.util.stream.Collectors;
 
 @Service
 public class S3Service {
-
+    
     @Autowired
     private S3Client s3Client;
-
+    
     @Value("${app.s3.bucket}")
     private String bucketName;
-
+    
+    // Upload file to S3
     public String uploadFile(MultipartFile file) {
         String fileName = System.currentTimeMillis() + "_" + file.getOriginalFilename();
+        
         try {
-            s3Client.headBucket(HeadBucketRequest.builder().bucket(bucketName).build());
-
+            // Check if bucket exists and is accessible
+            HeadBucketRequest headBucketRequest = HeadBucketRequest.builder()
+                    .bucket(bucketName)
+                    .build();
+            s3Client.headBucket(headBucketRequest);
+            
             PutObjectRequest putObjectRequest = PutObjectRequest.builder()
                     .bucket(bucketName)
                     .key(fileName)
                     .contentType(file.getContentType())
                     .contentLength(file.getSize())
                     .build();
-
+            
             s3Client.putObject(putObjectRequest, RequestBody.fromInputStream(file.getInputStream(), file.getSize()));
+            
             return "File uploaded successfully: " + fileName;
+            
         } catch (S3Exception e) {
             throw new RuntimeException("S3 Error: " + e.awsErrorDetails().errorMessage(), e);
         } catch (IOException e) {
@@ -43,47 +54,60 @@ public class S3Service {
             throw new RuntimeException("Failed to upload file to S3: " + e.getMessage(), e);
         }
     }
-
+    
+    // Download file from S3
     public byte[] downloadFile(String fileName) {
         try {
-            return s3Client.getObject(GetObjectRequest.builder()
+            GetObjectRequest getObjectRequest = GetObjectRequest.builder()
                     .bucket(bucketName)
                     .key(fileName)
-                    .build()).readAllBytes();
+                    .build();
+            
+            return s3Client.getObject(getObjectRequest).readAllBytes();
+            
         } catch (Exception e) {
             throw new RuntimeException("Failed to download file from S3", e);
         }
     }
-
+    
+    // Delete file from S3
     public String deleteFile(String fileName) {
         try {
-            s3Client.deleteObject(DeleteObjectRequest.builder()
+            DeleteObjectRequest deleteObjectRequest = DeleteObjectRequest.builder()
                     .bucket(bucketName)
                     .key(fileName)
-                    .build());
+                    .build();
+            
+            s3Client.deleteObject(deleteObjectRequest);
             return "File deleted successfully: " + fileName;
+            
         } catch (Exception e) {
             throw new RuntimeException("Failed to delete file from S3", e);
         }
     }
-
+    
+    // List all files in the bucket
     public List<String> listFiles() {
         try {
-            return s3Client.listObjectsV2(ListObjectsV2Request.builder()
+            ListObjectsV2Request listObjectsRequest = ListObjectsV2Request.builder()
                     .bucket(bucketName)
-                    .build())
-                    .contents()
-                    .stream()
+                    .build();
+            
+            ListObjectsV2Response listObjectsResponse = s3Client.listObjectsV2(listObjectsRequest);
+            
+            return listObjectsResponse.contents().stream()
                     .map(S3Object::key)
                     .collect(Collectors.toList());
+                    
         } catch (Exception e) {
             throw new RuntimeException("Failed to list files from S3", e);
         }
     }
-
+    
+    // Generate presigned URL for file access
     public String getFileUrl(String fileName) {
-        return "https://" + bucketName + ".s3." +
-                s3Client.serviceClientConfiguration().region().id() +
-                ".amazonaws.com/" + fileName;
+        return "https://" + bucketName + ".s3." + 
+               s3Client.serviceClientConfiguration().region().id() + 
+               ".amazonaws.com/" + fileName;
     }
 }
